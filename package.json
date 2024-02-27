@@ -1,0 +1,12 @@
+{
+  "name": "dfa-regex-converter",
+  "version": "1.0.0",
+  "description": "Utility to convert DFA schemas from *.mmd files into RegEx.",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Francesco 'Tolihama' Marino",
+  "license": "ISC",
+  "type": "module"
+}
