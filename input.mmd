@@ -1,0 +1,10 @@
+stateDiagram-v2
+    direction LR
+    [*] --> A: empty
+    A --> [*]: empty
+    A --> A: 0
+    A --> B: 1
+    B --> A: 1
+    B --> C: 0
+    C --> B: 0
+    C --> C: 1
