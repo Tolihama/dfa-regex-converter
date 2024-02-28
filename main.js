@@ -1,10 +1,8 @@
 import fs from 'node:fs/promises';
 import inquirer from 'inquirer';
 
-
 // Execute script
 main();
-
 
 /**
  * FUNCTIONS
@@ -18,7 +16,8 @@ async function main() {
 	const states = extractStatesFromTransitions(transitions);
 
 	let stepCounter = 0;
-	ripState(states, stepCounter);
+	const finalState = await ripState(states, stepCounter, outputFolderName);
+	console.log(finalState)
 }
 
 async function readFileLines(filePath) {
@@ -107,7 +106,7 @@ function filterStatesWithLeastTransitions(states) {
 	return filteredStates;
 }
 
-async function ripState(states, stepCounter) {
+async function ripState(states, stepCounter, outputFilePath) {
 	const newStates = JSON.parse(JSON.stringify(states));
 	const filteredStates = filterStatesWithLeastTransitions(newStates);
 	const filteredStatesArray = Object.keys(filteredStates);
@@ -162,10 +161,10 @@ async function ripState(states, stepCounter) {
 
 	// Print newStates as separate *.mmd file as log of the step result
 	stepCounter++;
-	// TODO: write function to print newStates
+	await printMermaidFile(newStates, stepCounter, stateToRip, outputFilePath);
 
 	// Recurse
-	ripState(newStates, stepCounter);
+	return ripState(newStates, stepCounter, outputFilePath);
 }
 
 function askWhichStateRip(filteredStatesArray) {
@@ -177,4 +176,40 @@ function askWhichStateRip(filteredStatesArray) {
 			choices: filteredStatesArray
 		}
 	]);
+}
+
+async function printMermaidFile(states, stepCounter, stateToRip, outputFolder) {
+	const dirPath = `./output/${outputFolder}`;
+	const filePath = `${dirPath}/step${stepCounter}-rip${stateToRip}.mmd`;
+
+	await fs.access(dirPath).catch(async () => {
+			await fs.mkdir(dirPath);
+		});
+
+	const mermaidHeader = "stateDiagram-v2\n" + "	direction LR\n";
+	await fs.writeFile(filePath, mermaidHeader, { flag: 'w+' });
+
+	const statesArray = Object.keys(states);
+
+	for( const stateKey of statesArray ) {
+		const state = states[stateKey];
+		const outers = Object.keys(state.outers);
+
+		for( const outer of outers ) {
+			await fs.writeFile(
+				filePath,
+				`	${stateKey} --> ${outer}: ${state.outers[outer]}\n`,
+				{ flag: 'a' }
+			);
+		}
+
+		if( state.self ) {
+			await fs.writeFile(
+				filePath,
+				`	${stateKey} --> ${stateKey}: ${state.self}\n`,
+				{ flag: 'a' }
+			);
+		}
+	}
+
 }
