@@ -17,7 +17,7 @@ async function main() {
 
 	let stepCounter = 0;
 	const finalState = await ripState(states, stepCounter, outputFolderName);
-	console.log(finalState)
+	console.log('The RegEx is:', `^(${finalState[Object.keys(finalState)[0]].self})+$`)
 }
 
 async function readFileLines(filePath) {
