@@ -115,9 +115,14 @@ async function ripState(states, stepCounter, outputFilePath) {
 		return states;
 	}
 
-	const stateToRip = filteredStatesArray.length === 1 
-		? filteredStatesArray[0] 
-		: await askWhichStateRip(filteredStatesArray).stateToRip;
+	let stateToRip;
+
+	if( filteredStatesArray.length === 1 ) {
+		stateToRip = filteredStatesArray[0];
+	} else {
+		const stateChosen = await askWhichStateRip(filteredStatesArray);
+		stateToRip = stateChosen.stateToRip;
+	}
 
 	const inners = Object.keys(filteredStates[stateToRip].inners);
 	const outers = Object.keys(filteredStates[stateToRip].outers);
