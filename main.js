@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import inquirer from 'inquirer';
 
 
 // Execute script
@@ -9,12 +10,15 @@ main();
  * FUNCTIONS
  */
 async function main() {
+	const runDate = new Date();
+	const outputFolderName = `${runDate.getDate()}-${runDate.getMonth() + 1}-${runDate.getFullYear()}-${runDate.getHours()}${runDate.getMinutes()}${runDate.getSeconds()}`;
+
 	const fileLines = await readFileLines('./input.mmd');
 	const transitions = extractTransitionsFromInput(fileLines);
 	const states = extractStatesFromTransitions(transitions);
-	calcTransitions(states);
-	filterStatesWithLeastTransitions(states);
-	console.log(states)
+
+	let stepCounter = 0;
+	ripState(states, stepCounter);
 }
 
 async function readFileLines(filePath) {
@@ -25,7 +29,7 @@ async function readFileLines(filePath) {
 function extractTransitionsFromInput(arrayInput) {
 	const output = [];
 
-	for( let line of arrayInput ) {
+	for( const line of arrayInput ) {
 		if( !/-->/.test(line) ) continue;
 
 		output.push({
@@ -41,7 +45,7 @@ function extractTransitionsFromInput(arrayInput) {
 function extractStatesFromTransitions(transitions) {
 	const output = {};
 
-	for( let transition of transitions ) {
+	for( const transition of transitions ) {
 		if( transition.from === '[*]' ) continue;
 
 		const emptyState = {
@@ -83,20 +87,94 @@ function calcTransitions(states) {
 function filterStatesWithLeastTransitions(states) {
 	let leastTransitionsNumber = null;
 
-	for( let state of Object.keys(states) ) {
-		if( states[state].finalState ) {
-			delete states[state];
+	const filteredStates = JSON.parse(JSON.stringify(calcTransitions(states)));
+
+	for( const state of Object.keys(filteredStates) ) {
+		if( filteredStates[state].finalState ) {
+			delete filteredStates[state];
 			continue;
 		}
 
-		if( leastTransitionsNumber === null || states[state].transitions < leastTransitionsNumber ) {
-			leastTransitionsNumber = states[state].transitions;
+		if( leastTransitionsNumber === null || filteredStates[state].transitions < leastTransitionsNumber ) {
+			leastTransitionsNumber = filteredStates[state].transitions;
 		}
 	}
 
-	Object.keys(states).forEach( state => {
-		if( states[state].transitions !== leastTransitionsNumber ) delete states[state];
+	Object.keys(filteredStates).forEach( state => {
+		if( filteredStates[state].transitions !== leastTransitionsNumber ) delete filteredStates[state];
 	})
 
-	return states;
+	return filteredStates;
+}
+
+async function ripState(states, stepCounter) {
+	const newStates = JSON.parse(JSON.stringify(states));
+	const filteredStates = filterStatesWithLeastTransitions(newStates);
+	const filteredStatesArray = Object.keys(filteredStates);
+
+	if( filteredStatesArray.length === 0 ) {
+		return states;
+	}
+
+	const stateToRip = filteredStatesArray.length === 1 
+		? filteredStatesArray[0] 
+		: await askWhichStateRip(filteredStatesArray).stateToRip;
+
+	const inners = Object.keys(filteredStates[stateToRip].inners);
+	const outers = Object.keys(filteredStates[stateToRip].outers);
+	const self = filteredStates[stateToRip].self;
+
+	for( const inner of inners ) {
+		for( const outer of outers ) {
+
+			if( inner === outer ) {
+				let newSelf = newStates[inner].self ? `(${newStates[inner].self})|` : '';
+
+				newSelf += '(';
+				newSelf += `(${filteredStates[stateToRip].inners[inner]})`;
+				if( self ) newSelf += `(${self})*`;
+				newSelf += `(${filteredStates[stateToRip].outers[outer]})`;
+				newSelf += ')';
+
+				newStates[inner].self = newSelf;
+				delete newStates[inner].inners[stateToRip];
+				delete newStates[inner].outers[stateToRip];
+				continue;
+			}
+
+			let newTransition = newStates[inner].outers[outer] ? `(${newStates[inner].outers[outer]})|` : '';
+
+			newTransition += '(';
+			newTransition += `(${newStates[inner].outers[stateToRip]})`;
+			if( self ) newTransition += `(${self})*`;
+			newTransition += `(${newStates[outer].inners[stateToRip]})`;
+			newTransition += ')';
+			
+			newStates[inner].outers[outer] = newTransition;
+			newStates[outer].inners[inner] = newTransition;
+			delete newStates[inner].outers[stateToRip];
+			delete newStates[outer].inners[stateToRip];
+
+		}
+	}
+
+	delete newStates[stateToRip];
+
+	// Print newStates as separate *.mmd file as log of the step result
+	stepCounter++;
+	// TODO: write function to print newStates
+
+	// Recurse
+	ripState(newStates, stepCounter);
+}
+
+function askWhichStateRip(filteredStatesArray) {
+	return inquirer.prompt([
+		{
+			type: 'list',
+			name: 'stateToRip',
+			message: 'Choice the state to rip',
+			choices: filteredStatesArray
+		}
+	]);
 }
