@@ -107,14 +107,17 @@ function filterStatesWithLeastTransitions(states) {
 }
 
 async function ripState(states, stepCounter, outputFilePath) {
+	// console.log('STEP N.', stepCounter, states)
 	const newStates = JSON.parse(JSON.stringify(states));
 	const filteredStates = filterStatesWithLeastTransitions(newStates);
 	const filteredStatesArray = Object.keys(filteredStates);
 
+	// End recursion if ripping process is complete
 	if( filteredStatesArray.length === 0 ) {
 		return states;
 	}
 
+	// Establish which state to rip
 	let stateToRip;
 
 	if( filteredStatesArray.length === 1 ) {
@@ -124,6 +127,7 @@ async function ripState(states, stepCounter, outputFilePath) {
 		stateToRip = stateChosen.stateToRip;
 	}
 
+	// Add inners and outers which reference ripping state to other states
 	const inners = Object.keys(filteredStates[stateToRip].inners);
 	const outers = Object.keys(filteredStates[stateToRip].outers);
 	const self = filteredStates[stateToRip].self;
@@ -141,8 +145,6 @@ async function ripState(states, stepCounter, outputFilePath) {
 				newSelf += ')';
 
 				newStates[inner].self = newSelf;
-				delete newStates[inner].inners[stateToRip];
-				delete newStates[inner].outers[stateToRip];
 				continue;
 			}
 
@@ -156,13 +158,24 @@ async function ripState(states, stepCounter, outputFilePath) {
 			
 			newStates[inner].outers[outer] = newTransition;
 			newStates[outer].inners[inner] = newTransition;
-			delete newStates[inner].outers[stateToRip];
-			delete newStates[outer].inners[stateToRip];
 
 		}
 	}
 
+	// Remove all reference to ripped state
 	delete newStates[stateToRip];
+	Object.keys(newStates).forEach( state => {
+		Object.keys(newStates[state].inners).forEach( inner => {
+			if( inner === stateToRip ) {
+				delete newStates[state].inners[inner];
+			}
+		});
+		Object.keys(newStates[state].outers).forEach( outer => {
+			if( outer === stateToRip ) {
+				delete newStates[state].outers[outer];
+			}
+		});
+	});
 
 	// Print newStates as separate *.mmd file as log of the step result
 	stepCounter++;
